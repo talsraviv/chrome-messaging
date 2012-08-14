@@ -1,0 +1,13 @@
+{
+    "name": "Exploring content script/background page communication options",
+    "version": "1.0",
+    "manifest_version" : 2,
+    "description": "content script/background communication tests",
+    "browser_action" : {
+        "default_icon": "icon.png",
+        "default_popup": "comm.html"
+    },
+    "background": {
+        "page": "bg.html"
+    }
+}

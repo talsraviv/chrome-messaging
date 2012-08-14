@@ -1,0 +1,77 @@
+
+-------------------------------------------------------------------------------
+Demo with hootsuite showed a few shortcomings of the app when it comes to large
+amounts of customer data at the CRM, in this case salesforce.
+- it took a long time to retrieve the customer's entire CRM database
+- this stalled all other app operations
+
+We can do away with needing to read the entire CRM database if we go get the
+data we need when we need it. We'll be retrieving much less information and 
+that should be faster too. Even if we were to retrieve the customer's entire
+CRM database the following changes I believe would eliminate the problems we
+saw with hootsuite:
+1. Do the retrieval asynchronously 
+2. Have each call to a CRM method be on a separate port/channel
+
+If the retreival is done asynchronously, no matter how much data it retrieves
+and how long it takes to get that data the backend thread would not be blocked.
+We will still have the problem that the other backend calls will stall or 
+rather fail because they can be only one outstanding request at a time until
+we move to having each CRM api call be on a separate port/channel.
+
+*** Verify the assumptions above ****
+
+Additional assumptions
+- Backend is a single worker thread.
+- Using multiple port/connections from content script to backend will allow us
+  to multiplex over the same connection/thread.
+
+We will still have the problem of having to make mulitiple calls to the same
+CRM api if a call doesn't finish before another one is made (eg 
+getExistingObjects is called so often and from so many places that is it 
+conceivable that one of the calls would occur while a prior one hasn't 
+returned. The would have to be checked at the content script level. For each
+CRM api keep a status indicator of whether a call is currently in progress or
+not and only make another if it is not. Since it is all single-threaded no 
+need to worry about synchronizing access to the status indicator.
+
+-------------------------------------------------------------------------------
+
+Test
+Create an extension whose icon when clicked displays a UI that allows us to do
+the test. The test would be:
+
+? How to mimic a long-running backend function?
+  - async: use setTimeout to control when it returns
+  - sync : create and use blocking sleep function
+
+Make calls to the backend in rapid succession in a loop, say. Have each backend
+call return after a known period and use what/when they return to determine if
+assumptions are correct.
+
+- Print date/time test starts.
+- Make 5 calls (same function, each different function).
+- Have backend function accept a parameter that tells it when to return.
+- Have backend function return the date/time of completion
+- 1st call returns after 5 minutes, 2nd after 4, 3rd after 3, 4th after 2...
+- If multi-plexing works then they'd return in the order 5,4,3,2,1, if it
+  doesn't the 1st call will return first and we'd get errors about more than
+  1 outstanding request and the other requests wouldn't return? 
+
+Independent test cases:
+1. async, sync, mixed async/sync
+2. simple request or long-lived/per port
+
+a) async and simple request
+b) async and long-lived
+c) sync and simple request
+d) sync and long-lived
+
+For the mixed async/sync make some of the backend processing sync and some 
+async and see if it makes a difference which is which. The combinations are 
+2^5 = 32.
+
+
+? What should the backend have?
+? What should the content script have?
+
